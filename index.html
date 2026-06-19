@@ -1,0 +1,628 @@
+import { useState } from "react";
+import { Check, X, Leaf, ChevronRight, Calendar, MapPin } from "lucide-react";
+
+const SAGE = "#7C8B6F";
+const SAGE_DARK = "#4F5A45";
+const SAGE_PALE = "#EEF1E8";
+const BURGUNDY = "#6B2737";
+const CREAM = "#FBF8F2";
+const GOLD = "#A98B4C";
+
+const GUEST = { name: "Esi Mensah", maxGuests: 2 };
+
+export default function RSVP() {
+  // envelope -> greeting -> attending -> details/note -> confirmed
+  const [stage, setStage] = useState("envelope");
+  const [opening, setOpening] = useState(false);
+  const [attending, setAttending] = useState(null);
+  const [guestCount, setGuestCount] = useState(1);
+  const [names, setNames] = useState([""]);
+  const [meals, setMeals] = useState(["Chicken"]);
+  const [dietary, setDietary] = useState("");
+  const [song, setSong] = useState("");
+  const [note, setNote] = useState("");
+  const [sealBreaking, setSealBreaking] = useState(false);
+  const [errors, setErrors] = useState(false);
+
+  const openEnvelope = () => {
+    if (opening) return;
+    setOpening(true);
+    // total sequence: seal pops (300ms) -> flap lifts (700ms) -> card slides up (700ms, overlapping) -> settle, fade to greeting
+    setTimeout(() => setStage("greeting"), 2000);
+  };
+
+  const choose = (value) => {
+    setSealBreaking(true);
+    setTimeout(() => {
+      setAttending(value);
+      setStage(value ? "details" : "note");
+      setSealBreaking(false);
+    }, 550);
+  };
+
+  const updateGuestCount = (n) => {
+    setGuestCount(n);
+    setNames((prev) => Array.from({ length: n }, (_, i) => prev[i] || ""));
+    setMeals((prev) => Array.from({ length: n }, (_, i) => prev[i] || "Chicken"));
+  };
+
+  const submit = () => {
+    if (attending && names.some((n) => !n.trim())) {
+      setErrors(true);
+      return;
+    }
+    setErrors(false);
+    setStage("confirmed");
+  };
+
+  const progressMap = { envelope: 0, greeting: 25, attending: 50, details: 75, note: 75, confirmed: 100 };
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: `radial-gradient(ellipse at top, #ffffff 0%, ${CREAM} 55%, #F2EEE3 100%)`,
+        fontFamily: "'Cormorant Garamond', Georgia, serif",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "32px 16px",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Tangerine:wght@700&display=swap');
+        * { box-sizing: border-box; }
+        .fade-up { animation: fadeUp 0.7s cubic-bezier(.22,1,.36,1) both; }
+        @keyframes fadeUp { from { opacity:0; transform: translateY(14px);} to {opacity:1; transform: translateY(0);} }
+        .btn-tap:active { transform: scale(0.97); }
+        button { font-family: inherit; }
+        input:focus, textarea:focus { outline: 2px solid ${SAGE}; outline-offset: 1px; }
+        @media (prefers-reduced-motion: reduce) {
+          .fade-up { animation: none; }
+        }
+      `}</style>
+
+      <Leaf size={120} color={SAGE} style={{ position: "absolute", top: -30, left: -30, opacity: 0.12, transform: "rotate(20deg)" }} />
+      <Leaf size={140} color={BURGUNDY} style={{ position: "absolute", bottom: -40, right: -40, opacity: 0.1, transform: "rotate(-150deg)" }} />
+
+      {stage === "envelope" ? (
+        <Envelope opening={opening} onOpen={openEnvelope} />
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 460,
+            background: "#fff",
+            borderRadius: 4,
+            boxShadow: "0 30px 60px -20px rgba(79,90,69,0.35), 0 0 0 1px rgba(169,139,76,0.15)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          className="fade-up"
+        >
+          <div style={{ height: 4, background: `linear-gradient(90deg, ${SAGE}, ${GOLD}, ${BURGUNDY})` }} />
+
+          <div style={{ padding: "30px 36px 36px" }}>
+            <ProgressBar percent={progressMap[stage]} />
+
+            {stage === "greeting" && <Greeting onNext={() => setStage("attending")} />}
+            {stage === "attending" && <AttendingStep sealBreaking={sealBreaking} onChoose={choose} />}
+            {stage === "details" && (
+              <DetailsStep
+                guestCount={guestCount}
+                setGuestCount={updateGuestCount}
+                names={names}
+                setNames={setNames}
+                meals={meals}
+                setMeals={setMeals}
+                dietary={dietary}
+                setDietary={setDietary}
+                song={song}
+                setSong={setSong}
+                onSubmit={submit}
+                errors={errors}
+              />
+            )}
+            {stage === "note" && <DeclineStep note={note} setNote={setNote} onSubmit={submit} />}
+            {stage === "confirmed" && <Confirmed attending={attending} />}
+          </div>
+
+          <div style={{ height: 4, background: `linear-gradient(90deg, ${BURGUNDY}, ${GOLD}, ${SAGE})` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Envelope: hinge-flap open + card slide ---------- */
+function Envelope({ opening, onOpen }) {
+  return (
+    <div
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
+      style={{
+        width: 280,
+        height: 190,
+        position: "relative",
+        cursor: opening ? "default" : "pointer",
+        perspective: 1000,
+      }}
+      className="fade-up"
+    >
+      {/* envelope body (back) */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "#f8f3ea",
+          border: `1.5px solid ${GOLD}`,
+          boxShadow: "0 18px 40px rgba(79,90,69,0.2)",
+          overflow: "hidden",
+        }}
+      >
+        {/* side creases for paper texture */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `linear-gradient(135deg, transparent 48%, rgba(169,139,76,0.08) 50%, transparent 52%),
+                         linear-gradient(-135deg, transparent 48%, rgba(169,139,76,0.08) 50%, transparent 52%)`,
+          }}
+        />
+      </div>
+
+      {/* reply card sliding up from inside, behind the flap, in front of the body */}
+      <div
+        style={{
+          position: "absolute",
+          left: 14,
+          right: 14,
+          bottom: opening ? 70 : -150,
+          height: 130,
+          background: "#fffdf8",
+          border: `1px solid ${SAGE}`,
+          borderRadius: 2,
+          boxShadow: "0 10px 24px rgba(0,0,0,0.12)",
+          transition: "bottom 0.8s cubic-bezier(.22,1,.36,1) 0.5s",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "column",
+          gap: 6,
+          zIndex: 2,
+        }}
+      >
+        <span style={{ fontFamily: "'Tangerine', cursive", fontSize: 38, color: BURGUNDY, lineHeight: 1 }}>
+          Ama &amp; Kofi
+        </span>
+        <span
+          style={{
+            fontFamily: "'EB Garamond', serif",
+            fontSize: 11,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: SAGE_DARK,
+          }}
+        >
+          request your presence
+        </span>
+      </div>
+
+      {/* triangular flap, hinged at the top edge */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 100,
+          background: "#f3ecdd",
+          border: `1.5px solid ${GOLD}`,
+          borderBottom: "none",
+          clipPath: "polygon(0 0, 100% 0, 50% 100%)",
+          transformOrigin: "top center",
+          transform: opening ? "rotateX(165deg)" : "rotateX(0deg)",
+          transition: "transform 0.7s cubic-bezier(.45,0,.55,1)",
+          transformStyle: "preserve-3d",
+          zIndex: 3,
+          boxShadow: opening ? "0 -4px 10px rgba(0,0,0,0.08)" : "none",
+        }}
+      />
+
+      {/* wax seal, sits on the flap point, pops away when opening starts */}
+      <div
+        style={{
+          position: "absolute",
+          top: 78,
+          left: "50%",
+          transform: opening ? "translate(-50%, -30px) scale(0.6) rotate(25deg)" : "translate(-50%, 0) scale(1) rotate(0deg)",
+          opacity: opening ? 0 : 1,
+          width: 50,
+          height: 50,
+          borderRadius: "50%",
+          background: BURGUNDY,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#f3ecdd",
+          fontSize: 18,
+          transition: "all 0.4s ease",
+          zIndex: 4,
+          boxShadow: "0 3px 6px rgba(0,0,0,0.25)",
+        }}
+      >
+        ✦
+      </div>
+
+      {/* hint text */}
+      <p
+        style={{
+          position: "absolute",
+          bottom: -34,
+          width: "100%",
+          textAlign: "center",
+          fontSize: 13,
+          fontFamily: "'EB Garamond', serif",
+          letterSpacing: "0.1em",
+          color: SAGE_DARK,
+          opacity: opening ? 0 : 1,
+          transition: "opacity 0.3s",
+        }}
+      >
+        Tap to open invitation
+      </p>
+    </div>
+  );
+}
+
+/* ---------- Progress ---------- */
+function ProgressBar({ percent }) {
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ height: 5, background: "#eee7dc", borderRadius: 99, overflow: "hidden" }}>
+        <div
+          style={{
+            width: `${percent}%`,
+            height: "100%",
+            background: `linear-gradient(90deg, ${SAGE}, ${GOLD})`,
+            transition: "width 0.5s cubic-bezier(.22,1,.36,1)",
+            borderRadius: 99,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Eyebrow({ children }) {
+  return (
+    <div
+      style={{
+        fontFamily: "'EB Garamond', serif",
+        fontSize: 11,
+        letterSpacing: "0.28em",
+        textTransform: "uppercase",
+        color: SAGE_DARK,
+        textAlign: "center",
+        marginBottom: 10,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Greeting({ onNext }) {
+  return (
+    <div className="fade-up" style={{ textAlign: "center" }}>
+      <Eyebrow>The Wedding Of</Eyebrow>
+      <h1 style={{ fontFamily: "'Tangerine', cursive", fontSize: 76, lineHeight: 0.9, margin: "0 0 6px", color: BURGUNDY }}>
+        Ama &amp; Kofi
+      </h1>
+      <div style={{ width: 50, height: 1, background: GOLD, margin: "16px auto" }} />
+      <p style={{ fontSize: 18, color: "#3A3A36", lineHeight: 1.6, margin: "0 0 4px" }}>Dear {GUEST.name},</p>
+      <p style={{ fontSize: 16, color: "#5C5C56", lineHeight: 1.7, margin: "0 0 30px" }}>
+        we joyfully request the pleasure of your company as we begin our life together.
+      </p>
+
+      <div style={{ fontFamily: "'EB Garamond', serif", fontSize: 14, color: SAGE_DARK, marginBottom: 32, display: "flex", flexDirection: "column", gap: 6 }}>
+        <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Calendar size={14} /> 12th of July, 2026
+        </span>
+        <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <MapPin size={14} /> Accra, Ghana
+        </span>
+      </div>
+
+      <button
+        onClick={onNext}
+        className="btn-tap"
+        style={{
+          background: SAGE_DARK,
+          color: "#fff",
+          border: "none",
+          padding: "14px 30px",
+          fontFamily: "'EB Garamond', serif",
+          fontSize: 14,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          borderRadius: 2,
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          transition: "background 0.2s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = BURGUNDY)}
+        onMouseLeave={(e) => (e.currentTarget.style.background = SAGE_DARK)}
+      >
+        Reply to Invitation <ChevronRight size={15} />
+      </button>
+    </div>
+  );
+}
+
+function AttendingStep({ onChoose, sealBreaking }) {
+  return (
+    <div className="fade-up" style={{ textAlign: "center" }}>
+      <Eyebrow>Kindly Reply</Eyebrow>
+      <h2 style={{ fontSize: 26, color: "#2E2E2A", fontWeight: 500, margin: "0 0 28px" }}>Will you be joining us?</h2>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <button
+          className="btn-tap"
+          onClick={() => onChoose(true)}
+          disabled={sealBreaking}
+          style={{
+            border: `1.5px solid ${SAGE}`,
+            background: SAGE_PALE,
+            borderRadius: 3,
+            padding: "20px 18px",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <span style={{ width: 34, height: 34, borderRadius: "50%", background: SAGE_DARK, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Check size={18} color="#fff" />
+          </span>
+          <span>
+            <div style={{ fontSize: 18, color: SAGE_DARK, fontWeight: 600 }}>Joyfully Accepts</div>
+            <div style={{ fontSize: 13, color: "#6b7763", fontFamily: "'EB Garamond', serif" }}>Wouldn't miss it for the world</div>
+          </span>
+        </button>
+
+        <button
+          className="btn-tap"
+          onClick={() => onChoose(false)}
+          disabled={sealBreaking}
+          style={{
+            border: "1.5px solid #ddd6cc",
+            background: "#fff",
+            borderRadius: 3,
+            padding: "20px 18px",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <span style={{ width: 34, height: 34, borderRadius: "50%", background: BURGUNDY, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <X size={18} color="#fff" />
+          </span>
+          <span>
+            <div style={{ fontSize: 18, color: BURGUNDY, fontWeight: 600 }}>Regretfully Declines</div>
+            <div style={{ fontSize: 13, color: "#8a8278", fontFamily: "'EB Garamond', serif" }}>Will be there in spirit</div>
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NumberStepper({ value, onChange, min = 1, max = 4 }) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", border: `1px solid ${SAGE}`, borderRadius: 3 }}>
+      <button className="btn-tap" onClick={() => onChange(Math.max(min, value - 1))} style={{ width: 36, height: 36, border: "none", background: "transparent", fontSize: 18, color: SAGE_DARK, cursor: "pointer" }}>
+        −
+      </button>
+      <span style={{ width: 32, textAlign: "center", fontSize: 16, color: "#2E2E2A" }}>{value}</span>
+      <button className="btn-tap" onClick={() => onChange(Math.min(max, value + 1))} style={{ width: 36, height: 36, border: "none", background: "transparent", fontSize: 18, color: SAGE_DARK, cursor: "pointer" }}>
+        +
+      </button>
+    </div>
+  );
+}
+
+const inputStyle = {
+  width: "100%",
+  padding: "10px 12px",
+  border: "1px solid #ddd6cc",
+  borderRadius: 3,
+  fontFamily: "'EB Garamond', serif",
+  fontSize: 15,
+  color: "#2E2E2A",
+  background: "#FCFAF5",
+};
+
+const labelStyle = {
+  fontFamily: "'EB Garamond', serif",
+  fontSize: 12,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: SAGE_DARK,
+  marginBottom: 6,
+  display: "block",
+};
+
+function DetailsStep({ guestCount, setGuestCount, names, setNames, meals, setMeals, dietary, setDietary, song, setSong, onSubmit, errors }) {
+  const updateName = (i, val) => {
+    const next = [...names];
+    next[i] = val;
+    setNames(next);
+  };
+  const updateMeal = (i, val) => {
+    const next = [...meals];
+    next[i] = val;
+    setMeals(next);
+  };
+
+  return (
+    <div className="fade-up">
+      <Eyebrow>Delighted To Hear It</Eyebrow>
+      <h2 style={{ fontSize: 22, color: "#2E2E2A", fontWeight: 500, margin: "0 0 24px", textAlign: "center" }}>A few details, then</h2>
+
+      <div style={{ marginBottom: 20 }}>
+        <label style={labelStyle}>Party size (up to {GUEST.maxGuests})</label>
+        <NumberStepper value={guestCount} onChange={setGuestCount} max={GUEST.maxGuests} />
+      </div>
+
+      {Array.from({ length: guestCount }).map((_, i) => (
+        <div key={i} style={{ marginBottom: 18, paddingBottom: 16, borderBottom: i < guestCount - 1 ? "1px dashed #e5dfd2" : "none" }}>
+          <label style={labelStyle}>Guest {i + 1} full name</label>
+          <input
+            style={{ ...inputStyle, marginBottom: 4, border: errors && !names[i]?.trim() ? `1px solid ${BURGUNDY}` : inputStyle.border }}
+            value={names[i] || ""}
+            onChange={(e) => updateName(i, e.target.value)}
+            placeholder="Full name"
+          />
+          {errors && !names[i]?.trim() && (
+            <div style={{ fontSize: 12, color: BURGUNDY, fontFamily: "'EB Garamond', serif", marginBottom: 8 }}>Please enter a name</div>
+          )}
+          <label style={{ ...labelStyle, marginTop: 8 }}>Meal preference</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            {["Chicken", "Fish", "Vegetarian"].map((opt) => (
+              <button
+                key={opt}
+                className="btn-tap"
+                onClick={() => updateMeal(i, opt)}
+                style={{
+                  flex: 1,
+                  padding: "8px 6px",
+                  fontSize: 13,
+                  fontFamily: "'EB Garamond', serif",
+                  borderRadius: 3,
+                  border: `1px solid ${meals[i] === opt ? SAGE_DARK : "#ddd6cc"}`,
+                  background: meals[i] === opt ? SAGE_DARK : "#fff",
+                  color: meals[i] === opt ? "#fff" : "#5C5C56",
+                  cursor: "pointer",
+                }}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={labelStyle}>Dietary restrictions or allergies (optional)</label>
+        <input style={inputStyle} value={dietary} onChange={(e) => setDietary(e.target.value)} placeholder="e.g. nut allergy" />
+      </div>
+
+      <div style={{ marginBottom: 28 }}>
+        <label style={labelStyle}>One song to bring you to the dance floor (optional)</label>
+        <input style={inputStyle} value={song} onChange={(e) => setSong(e.target.value)} placeholder="Artist — Title" />
+      </div>
+
+      <SubmitButton onClick={onSubmit} label="Confirm RSVP" />
+    </div>
+  );
+}
+
+function DeclineStep({ note, setNote, onSubmit }) {
+  return (
+    <div className="fade-up">
+      <Eyebrow>We'll Miss You</Eyebrow>
+      <h2 style={{ fontSize: 22, color: "#2E2E2A", fontWeight: 500, margin: "0 0 20px", textAlign: "center" }}>Leave a note for the couple</h2>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Wishing you both a lifetime of love..."
+        rows={5}
+        style={{ ...inputStyle, resize: "none", marginBottom: 28 }}
+      />
+      <SubmitButton onClick={onSubmit} label="Send Reply" />
+    </div>
+  );
+}
+
+function SubmitButton({ onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      className="btn-tap"
+      style={{
+        width: "100%",
+        background: BURGUNDY,
+        color: "#fff",
+        border: "none",
+        padding: "15px",
+        fontFamily: "'EB Garamond', serif",
+        fontSize: 14,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        borderRadius: 2,
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Confirmed({ attending }) {
+  return (
+    <div className="fade-up" style={{ textAlign: "center", padding: "20px 0" }}>
+      <div
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: "50%",
+          background: SAGE_PALE,
+          border: `1.5px solid ${SAGE}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          margin: "0 auto 22px",
+        }}
+      >
+        <Leaf size={26} color={SAGE_DARK} />
+      </div>
+      <Eyebrow>Reply Received</Eyebrow>
+      <h2 style={{ fontSize: 24, color: "#2E2E2A", fontWeight: 500, margin: "0 0 12px" }}>
+        {attending ? "We can't wait to celebrate with you" : "Thank you for letting us know"}
+      </h2>
+      <p style={{ fontSize: 15, color: "#6b6960", lineHeight: 1.7, marginBottom: 26 }}>
+        {attending ? "Your reply has been tucked safely into the guest book." : "You'll be held close in our hearts on the day."}
+      </p>
+      <div
+        style={{
+          fontFamily: "'EB Garamond', serif",
+          fontSize: 13,
+          color: SAGE_DARK,
+          border: `1px dashed ${SAGE}`,
+          borderRadius: 3,
+          padding: "14px 18px",
+          display: "inline-flex",
+          flexDirection: "column",
+          gap: 4,
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Calendar size={13} /> Sunday, 12th July 2026
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <MapPin size={13} /> Accra, Ghana
+        </span>
+      </div>
+    </div>
+  );
+}
