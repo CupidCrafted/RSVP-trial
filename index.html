@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedding RSVP — Ama & Kofi</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Great+Vibes&family=Tangerine:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --SAGE: #7C8B6F;
+            --SAGE-DARK: #4F5A45;
+            --SAGE-PALE: #EEF1E8;
+            --BURGUNDY: #6B2737;
+            --CREAM: #FBF8F2;
+            --ANTIQUE-BRONZE: #9A8256; /* Replaced the clashing bright gold/yellow */
+            --CHAMPAGNE-IVORY: #F5F2EB;
+        }
+        
+        * { box-sizing: border-box; }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+            background-color: #e3ded7;
+            font-family: 'Times New Roman', Times, serif;
+        }
+
+        /* ============ SCREEN 1: 3D Envelope Container ============ */
+        #envelope-screen {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            transition: opacity 2.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+        
+        #envelope-screen.dismissed {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        #invited-overlay {
+            position: absolute;
+            left: 0; right: 0;
+            top: 64%;
+            text-align: center;
+            font-family: 'Great Vibes', cursive;
+            font-size: clamp(32px, 8vw, 52px);
+            color: #2E3320;
+            opacity: 0.88;
+            pointer-events: none;
+            transition: opacity 0.6s ease;
+            text-shadow: 0 1px 1px rgba(255,255,255,0.3);
+            user-select: none;
+        }
+        
+        #invited-overlay.faded { opacity: 0; }
+        
+        #hint-text {
+            position: absolute;
+            bottom: 5%;
+            width: 100%;
+            text-align: center;
+            color: #8c7a6b;
+            font-size: 13px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            user-select: none;
+            animation: pulseHint 2.5s infinite ease-in-out;
+        }
+
+        @keyframes pulseHint {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.9; }
+        }
+
+        /* ============ SCREEN 2: RSVP Dynamic Interface Flow ============ */
+        #app-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(ellipse at top, #ffffff 0%, var(--CREAM) 55%, #F2EEE3 100%);
+            font-family: 'Cormorant Garamond', Georgia, serif;
+        }
+        
+        .fade-up { animation: fadeUp 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        @keyframes fadeUp { 
+            from { opacity: 0; transform: translateY(35px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        
+        .btn-tap { transition: transform 0.1s ease, background-color 0.2s ease; }
+        .btn-tap:active { transform: scale(0.98); }
+        
+        input:focus, textarea:focus { 
+            outline: 2px solid var(--SAGE); 
+            outline-offset: 1px; 
+            background: #fff !important;
+        }
+
+        .card-container {
+            width: 100%;
+            max-width: 460px;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 30px 60px -20px rgba(79,90,69,0.35), 0 0 0 1px rgba(169,139,76,0.15);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .rainbow-bar-forward { height: 4px; background: linear-gradient(90deg, var(--SAGE), var(--ANTIQUE-BRONZE), var(--BURGUNDY)); }
+        .rainbow-bar-reverse { height: 4px; background: linear-gradient(90deg, var(--BURGUNDY), var(--ANTIQUE-BRONZE), var(--SAGE)); }
+        .card-content { padding: 20px 36px 36px; position: relative; }
+
+        /* Elegant Back Button Utility Styling */
+        .back-nav-container {
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 14px;
+            height: 20px;
+        }
+        .back-btn {
+            background: none;
+            border: none;
+            font-family: 'EB Garamond', serif;
+            font-size: 13px;
+            letter-spacing: 0.05em;
+            color: #8A8278;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0;
+            transition: color 0.2s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .back-btn.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .back-btn:hover {
+            color: var(--BURGUNDY);
+        }
+
+        .progress-wrapper { margin-bottom: 22px; }
+        .progress-bg { height: 5px; background: #eee7dc; border-radius: 99px; overflow: hidden; position: relative; }
+        .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, var(--SAGE), var(--ANTIQUE-BRONZE)); transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); border-radius: 99px; }
+
+        .eyebrow { font-family: 'EB Garamond', serif; font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--SAGE-DARK); text-align: center; margin-bottom: 10px; }
+        .input-style { width: 100%; padding: 12px; border: 1px solid #ddd6cc; border-radius: 3px; font-family: 'EB Garamond', serif; font-size: 16px; color: #2E2E2A; background: #FCFAF5; transition: all 0.2s ease; }
+        .label-style { font-family: 'EB Garamond', serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--SAGE-DARK); margin-bottom: 6px; display: block; }
+
+        .step-panel { display: none; text-align: center; }
+        .step-panel.active { display: block; }
+        .left-align { text-align: left; }
+
+        .stepper { display: inline-flex; align-items: center; border: 1px solid var(--SAGE); border-radius: 3px; background: #FCFAF5; }
+        .stepper button { width: 40px; height: 38px; border: none; background: transparent; font-size: 20px; color: var(--SAGE-DARK); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .stepper button:hover { background: rgba(124, 139, 111, 0.1); }
+        .stepper span { width: 36px; text-align: center; font-size: 16px; color: #2E2E2A; font-weight: 600; }
+
+        .meal-options { display: flex; gap: 8px; }
+        .meal-btn { flex: 1; padding: 10px 6px; font-size: 13px; font-family: 'EB Garamond', serif; border-radius: 3px; border: 1px solid #ddd6cc; background: #fff; color: #5C5C56; cursor: pointer; transition: all 0.2s ease; }
+        .meal-btn.active { border-color: var(--SAGE-DARK); background: var(--SAGE-DARK); color: #fff; }
+
+        .submit-btn { width: 100%; background: var(--BURGUNDY); color: #fff; border: none; padding: 15px; font-family: 'EB Garamond', serif; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; border-radius: 2px; cursor: pointer; box-shadow: 0 4px 12px rgba(107, 39, 55, 0.15); }
+        .submit-btn:hover { filter: brightness(1.15); }
+    </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+<body>
+
+    <div id="envelope-screen" role="button" aria-label="Open wedding invitation">
+        <div id="canvas-container"></div>
+        <p id="invited-overlay">You are invited</p>
+        <div id="hint-text">⚜ TAP TO OPEN INVITATION ⚜</div>
+    </div>
+
+    <div id="app-screen">
+        <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#7C8B6F" stroke-width="1" style="position: absolute; top: -30px; left: -30px; opacity: 0.12; transform: rotate(20deg);" aria-hidden="true"><path d="M2 22c10 0 20-10 20-20M2 22c4-4 8-4 12-4M2 22c4-8 4-12 4-12"/></svg>
+        <svg width="140" height="140" viewBox="0 0 24 24" fill="none" stroke="#6B2737" stroke-width="1" style="position: absolute; bottom: -40px; right: -40px; opacity: 0.1; transform: rotate(-150deg);" aria-hidden="true"><path d="M2 22c10 0 20-10 20-20M2 22c4-4 8-4 12-4M2 22c4-8 4-12 4-12"/></svg>
+
+        <div id="main-card" class="card-container">
+            <div class="rainbow-bar-forward"></div>
+            <div class="card-content">
+
+                <div class="back-nav-container">
+                    <button id="global-back-btn" class="back-btn" onclick="handleBackNavigation()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Back
+                    </button>
+                </div>
+
+                <div class="progress-wrapper">
+                    <div class="progress-bg"><div id="progress-bar" class="progress-fill"></div></div>
+                </div>
+
+                <div id="step-greeting" class="step-panel active">
+                    <div class="eyebrow">The Wedding Of</div>
+                    <h1 style="font-family: 'Tangerine', cursive; font-size: 76px; line-height: 0.9; margin: 0 0 6px; color: var(--BURGUNDY); user-select: none;">Ama & Kofi</h1>
+                    <div style="width: 50px; height: 1px; background: var(--ANTIQUE-BRONZE); margin: 16px auto;"></div>
+                    <p style="font-size: 18px; color: #3A3A36; line-height: 1.6; margin: 0 0 4px;">Dear Esi Mensah,</p>
+                    <p style="font-size: 16px; color: #5C5C56; line-height: 1.7; margin: 0 0 30px;">we joyfully request the pleasure of your company as we begin our life together.</p>
+
+                    <div style="font-family: 'EB Garamond', serif; font-size: 14px; color: var(--SAGE-DARK); margin-bottom: 32px; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+                        <span style="display: inline-flex; align-items: center; gap: 8px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> 12th of July, 2026
+                        </span>
+                        <span style="display: inline-flex; align-items: center; gap: 8px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Accra, Ghana
+                        </span>
+                    </div>
+
+                    <button class="submit-btn btn-tap" style="background: var(--SAGE-DARK); box-shadow: 0 4px 12px rgba(79,90,69,0.15);" onclick="goToStage('attending')">Reply to Invitation</button>
+                </div>
+
+                <div id="step-attending" class="step-panel">
+                    <div class="eyebrow">Kindly Reply</div>
+                    <h2 style="font-size: 26px; color: #2E2E2A; font-weight: 500; margin-bottom: 28px;">Will you be joining us?</h2>
+
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        <button class="btn-tap" onclick="chooseAttending(true)" style="border: 1.5px solid var(--SAGE); background: var(--SAGE-PALE); border-radius: 3px; padding: 20px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; text-align: left; width: 100%;">
+                            <span style="width: 34px; height: 34px; border-radius: 50%; background: var(--SAGE-DARK); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </span>
+                            <span>
+                                <div style="font-size: 18px; color: var(--SAGE-DARK); font-weight: 600;">Joyfully Accepts</div>
+                                <div style="font-size: 13px; color: #6b7763; font-family: 'EB Garamond', serif;">Wouldn't miss it for the world</div>
+                            </span>
+                        </button>
+
+                        <button class="btn-tap" onclick="chooseAttending(false)" style="border: 1.5px solid #ddd6cc; background: #fff; border-radius: 3px; padding: 20px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; text-align: left; width: 100%;">
+                            <span style="width: 34px; height: 34px; border-radius: 50%; background: var(--BURGUNDY); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </span>
+                            <span>
+                                <div style="font-size: 18px; color: var(--BURGUNDY); font-weight: 600;">Regretfully Declines</div>
+                                <div style="font-size: 13px; color: #8a8278; font-family: 'EB Garamond', serif;">Will be there in spirit</div>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="step-details" class="step-panel left-align">
+                    <div class="eyebrow" style="text-align: center;">Delighted To Hear It</div>
+                    <h2 style="font-size: 22px; color: #2E2E2A; font-weight: 500; margin-bottom: 24px; text-align: center;">A few details, then</h2>
+
+                    <div style="margin-bottom: 20px;">
+                        <label class="label-style">Party size (up to 2)</label>
+                        <div class="stepper">
+                            <button type="button" onclick="changeGuestCount(-1)" aria-label="Decrease guest count">−</button>
+                            <span id="guest-count-label" aria-live="polite">1</span>
+                            <button type="button" onclick="changeGuestCount(1)" aria-label="Increase guest count">+</button>
+                        </div>
+                    </div>
+
+                    <div id="dynamic-guests"></div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label for="dietary-input" class="label-style">Dietary restrictions or allergies (optional)</label>
+                        <input id="dietary-input" class="input-style" placeholder="e.g. nut allergy">
+                    </div>
+                    <div style="margin-bottom: 28px;">
+                        <label for="song-input" class="label-style">One song to bring you to the dance floor (optional)</label>
+                        <input id="song-input" class="input-style" placeholder="Artist — Title">
+                    </div>
+
+                    <button class="submit-btn btn-tap" onclick="submitForm(true)">Confirm RSVP</button>
+                </div>
+
+                <div id="step-note" class="step-panel">
+                    <div class="eyebrow">We'll Miss You</div>
+                    <h2 style="font-size: 22px; color: #2E2E2A; font-weight: 500; margin-bottom: 20px;">Leave a note for the couple</h2>
+                    <textarea id="decline-note" class="input-style" rows="5" style="resize: none; margin-bottom: 28px;" placeholder="Wishing you both a lifetime of love..."></textarea>
+                    <button class="submit-btn btn-tap" onclick="submitForm(false)">Send Reply</button>
+                </div>
+
+                <div id="step-confirmed" class="step-panel">
+                    <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--SAGE-PALE); border: 1.5px solid var(--SAGE); display: flex; align-items: center; justify-content: center; margin: 0 auto 22px;">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4F5A45" stroke-width="1.5" aria-hidden="true"><path d="M2 22c10 0 20-10 20-20M2 22c4-4 8-4 12-4M2 22c4-8 4-12 4-12"/></svg>
+                    </div>
+                    <div class="eyebrow">Reply Received</div>
+                    <h2 id="confirmed-title" style="font-size: 24px; color: #2E2E2A; font-weight: 500; margin-bottom: 12px;"></h2>
+                    <p id="confirmed-desc" style="font-size: 15px; color: #6b6960; line-height: 1.7; margin-bottom: 26px;"></p>
+
+                    <div style="font-family: 'EB Garamond', serif; font-size: 13px; color: var(--SAGE-DARK); border: 1px dashed var(--SAGE); border-radius: 3px; padding: 14px 18px; display: inline-flex; flex-direction: column; gap: 6px; text-align: left;">
+                        <span style="display: inline-flex; align-items: center; gap: 8px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Sunday, 12th July 2026
+                        </span>
+                        <span style="display: inline-flex; align-items: center; gap: 8px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Accra, Ghana
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+            <div class="rainbow-bar-reverse"></div>
+        </div>
+    </div>
+
+    <script>
+        // ====================================================================
+        // SCREEN 1: 3D ENVELOPE CANVAS ENGINE WITH HIGH-CONTRAST CHAMPAGNE IVORY
+        // ====================================================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xe3ded7);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 6);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfff8ee, 1.4);
+        dirLight.position.set(4, 8, 6);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.bias = -0.0008;
+        scene.add(dirLight);
+
+        function createFloralPaperTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#323E30'; 
+            ctx.fillRect(0, 0, 1024, 1024);
+            
+            for (let i = 0; i < 150000; i++) {
+                const x = Math.random() * 1024;
+                const y = Math.random() * 1024;
+                const alpha = Math.random() * 0.05;
+                ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+                ctx.fillRect(x, y, 1, 1);
+            }
+            
+            // Replaced the clashing bright yellow gold with an elegant Champagne White Gold
+            ctx.strokeStyle = '#F5F2EB'; 
+            ctx.lineWidth = 3.2; 
+            ctx.shadowBlur = 3; 
+            ctx.shadowColor = 'rgba(245, 242, 235, 0.35)';
+            
+            function drawOrnamentalFlower(cx, cy, petals, outerRadius, innerRadius) {
+                ctx.beginPath();
+                for (let i = 0; i <= 360; i += 0.5) {
+                    const rad = i * Math.PI / 180;
+                    const r = outerRadius + innerRadius * Math.sin(petals * rad);
+                    const x = cx + Math.cos(rad) * r;
+                    const y = cy + Math.sin(rad) * r;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(cx, cy, outerRadius * 0.4, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.lineWidth = 3.2;
+            }
+
+            drawOrnamentalFlower(160, 160, 10, 150, 50);
+            drawOrnamentalFlower(864, 160, 10, 150, 50);
+            drawOrnamentalFlower(160, 864, 12, 110, 30);
+            drawOrnamentalFlower(864, 864, 12, 110, 30);
+            
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createMonogramTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 512, 512);
+
+            ctx.beginPath();
+            ctx.arc(256, 256, 256, 0, Math.PI * 2);
+            ctx.fillStyle = '#8A1C14';
+            ctx.fill();
+
+            const grad = ctx.createRadialGradient(180, 160, 20, 256, 256, 300);
+            grad.addColorStop(0, 'rgba(255,255,255,0.18)');
+            grad.addColorStop(1, 'rgba(0,0,0,0.1)');
+            ctx.beginPath();
+            ctx.arc(256, 256, 256, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '600 168px "Cormorant Garamond", Georgia, serif';
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillText('A&K', 256, 266);
+            ctx.fillStyle = '#F5F2EB'; // Swapped letter stamp color to match champagne accents
+            ctx.fillText('A&K', 256, 256);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const floralPaperMap = createFloralPaperTexture();
+
+        function makeEnvelopeMaterial(tint) {
+            return new THREE.MeshStandardMaterial({
+                map: floralPaperMap,
+                color: new THREE.Color(tint, tint, tint),
+                roughness: 0.75,
+                metalness: 0.05, 
+                side: THREE.DoubleSide
+            });
+        }
+
+        const backMaterial = makeEnvelopeMaterial(0.78);
+        const bottomMaterial = makeEnvelopeMaterial(0.88);
+        const sideMaterial = makeEnvelopeMaterial(0.94);
+        const topMaterial = makeEnvelopeMaterial(1.05);
+
+        const creaseLineMaterial = new THREE.LineBasicMaterial({ color: 0x1f2a18, transparent: true, opacity: 0.35 });
+        function addCreaseLines(geometry, parent, zOffset) {
+            const edges = new THREE.EdgesGeometry(geometry);
+            const lines = new THREE.LineSegments(edges, creaseLineMaterial);
+            lines.position.z = zOffset;
+            parent.add(lines);
+            return lines;
+        }
+
+        const envelopeGroup = new THREE.Group();
+        scene.add(envelopeGroup);
+
+        const envWidth = 4;
+        const envHeight = 2.8;
+
+        const DEPTH_BACK = 0;
+        const DEPTH_BOTTOM = 0.06;
+        const DEPTH_SIDES = 0.12;
+        const DEPTH_TOP_HINGE = 0.18;
+
+        const backGeo = new THREE.PlaneGeometry(envWidth, envHeight);
+        const backMesh = new THREE.Mesh(backGeo, backMaterial);
+        backMesh.position.z = DEPTH_BACK;
+        backMesh.receiveShadow = true;
+        envelopeGroup.add(backMesh);
+
+        const bottomShape = new THREE.Shape();
+        bottomShape.moveTo(-envWidth/2, -envHeight/2);
+        bottomShape.lineTo(envWidth/2, -envHeight/2);
+        bottomShape.lineTo(0, 0);
+        const bottomGeo = new THREE.ShapeGeometry(bottomShape);
+        const bottomFlap = new THREE.Mesh(bottomGeo, bottomMaterial);
+        bottomFlap.position.z = DEPTH_BOTTOM;
+        bottomFlap.receiveShadow = true;
+        bottomFlap.castShadow = true;
+        envelopeGroup.add(bottomFlap);
+        addCreaseLines(bottomGeo, envelopeGroup, DEPTH_BOTTOM + 0.002);
+
+        const leftShape = new THREE.Shape();
+        leftShape.moveTo(-envWidth/2, -envHeight/2);
+        leftShape.lineTo(-envWidth/2, envHeight/2);
+        leftShape.lineTo(-0.2, 0);
+        const leftGeo = new THREE.ShapeGeometry(leftShape);
+        const leftFlap = new THREE.Mesh(leftGeo, sideMaterial);
+        leftFlap.position.z = DEPTH_SIDES;
+        leftFlap.receiveShadow = true;
+        leftFlap.castShadow = true;
+        envelopeGroup.add(leftFlap);
+        addCreaseLines(leftGeo, envelopeGroup, DEPTH_SIDES + 0.002);
+
+        const rightShape = new THREE.Shape();
+        rightShape.moveTo(envWidth/2, -envHeight/2);
+        rightShape.lineTo(envWidth/2, envHeight/2);
+        rightShape.lineTo(0.2, 0);
+        const rightGeo = new THREE.ShapeGeometry(rightShape);
+        const rightFlap = new THREE.Mesh(rightGeo, sideMaterial);
+        rightFlap.position.z = DEPTH_SIDES;
+        rightFlap.receiveShadow = true;
+        rightFlap.castShadow = true;
+        envelopeGroup.add(rightFlap);
+        addCreaseLines(rightGeo, envelopeGroup, DEPTH_SIDES + 0.002);
+
+        const topFlapGroup = new THREE.Group();
+        topFlapGroup.position.set(0, envHeight / 2, DEPTH_TOP_HINGE);
+        envelopeGroup.add(topFlapGroup);
+
+        const topShape = new THREE.Shape();
+        topShape.moveTo(-envWidth/2, 0);
+        topShape.lineTo(envWidth/2, 0);
+        topShape.lineTo(0, -envHeight * 0.55);
+        const topGeo = new THREE.ShapeGeometry(topShape);
+
+        const topFlapMesh = new THREE.Mesh(topGeo, topMaterial);
+        topFlapMesh.castShadow = true;
+        topFlapMesh.receiveShadow = true;
+        topFlapGroup.add(topFlapMesh);
+        addCreaseLines(topGeo, topFlapGroup, 0.002);
+
+        const sealGroup = new THREE.Group();
+        sealGroup.position.set(0, -envHeight * 0.55, 0.02);
+        topFlapGroup.add(sealGroup);
+
+        const sealMaterial = new THREE.MeshStandardMaterial({ color: 0x8A1C14, roughness: 0.3, metalness: 0.2 });
+        const sealBaseGeo = new THREE.CylinderGeometry(0.25, 0.27, 0.04, 32);
+        sealBaseGeo.rotateX(Math.PI / 2);
+        const sealBase = new THREE.Mesh(sealBaseGeo, sealMaterial);
+        sealBase.castShadow = true;
+        sealGroup.add(sealBase);
+
+        const rimShape = new THREE.Shape();
+        for (let i = 0; i <= 40; i++) {
+            const theta = (i / 40) * Math.PI * 2;
+            const r = 0.28 + Math.sin(theta * 5) * 0.015 + Math.cos(theta * 3) * 0.01;
+            const x = Math.cos(theta) * r;
+            const y = Math.sin(theta) * r;
+            if (i === 0) rimShape.moveTo(x, y); else rimShape.lineTo(x, y);
+        }
+        const sealRim = new THREE.Mesh(new THREE.ExtrudeGeometry(rimShape, { depth: 0.05, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 }).center(), sealMaterial);
+        sealRim.position.z = -0.01;
+        sealGroup.add(sealRim);
+
+        const monogramDisc = new THREE.Mesh(new THREE.CircleGeometry(0.21, 48), new THREE.MeshStandardMaterial({ map: createMonogramTexture(), roughness: 0.35, metalness: 0.15 }));
+        monogramDisc.position.z = 0.045;
+        sealGroup.add(monogramDisc);
+
+        let isOpen = false;
+        const hintText = document.getElementById('hint-text');
+        const invitedOverlay = document.getElementById('invited-overlay');
+        const envelopeScreen = document.getElementById('envelope-screen');
+
+        function openEnvelope() {
+            if (isOpen) return;
+            isOpen = true;
+            hintText.style.opacity = '0';
+
+            const timeline = gsap.timeline();
+
+            timeline.to(sealGroup.position, {
+                z: 0.4,
+                duration: 0.9,
+                ease: "back.out(1.2)"
+            });
+
+            timeline.call(() => {
+                invitedOverlay.classList.add('faded');
+            }, null, "+=0.1");
+
+            timeline.to({}, { duration: 0.5 });
+
+            timeline.to(topFlapGroup.rotation, {
+                x: -Math.PI * 0.45,  
+                duration: 3.5,       
+                ease: "power1.inOut"
+            });
+
+            timeline.to(camera.position, {
+                z: 5.3,
+                y: -0.15,
+                duration: 3.5,
+                ease: "power1.inOut"
+            }, "<");
+
+            timeline.call(() => {
+                envelopeScreen.classList.add('dismissed');
+            }, null, "-=1.8"); 
+
+            const executionDelayMs = (0.9 + 0.1 + 0.5 + 3.5) * 1000 - 1500;
+            setTimeout(() => {
+                envelopeScreen.style.display = 'none';
+                const mainCard = document.getElementById('main-card');
+                mainCard.classList.remove('fade-up');
+                void mainCard.offsetWidth; 
+                mainCard.classList.add('fade-up');
+                goToStage('greeting');
+            }, executionDelayMs);
+        }
+
+        window.addEventListener('click', openEnvelope);
+        window.addEventListener('touchstart', openEnvelope, {passive: true});
+
+        let mouseX = 0, mouseY = 0;
+        window.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth) - 0.5;
+            mouseY = (e.clientY / window.innerHeight) - 0.5;
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            if (!isOpen) {
+                envelopeGroup.rotation.y = Math.sin(elapsedTime * 0.4) * 0.04 + (mouseX * 0.18);
+                envelopeGroup.rotation.x = Math.cos(elapsedTime * 0.4) * 0.02 + (-mouseY * 0.18);
+            } else {
+                envelopeGroup.rotation.y = gsap.utils.interpolate(envelopeGroup.rotation.y, mouseX * 0.12, 0.04);
+                envelopeGroup.rotation.x = gsap.utils.interpolate(envelopeGroup.rotation.x, -mouseY * 0.12, 0.04);
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ====================================================================
+        // SCREEN 2: RSVP CONTROL ARCHITECTURE (WITH HISTORICAL STEP BACKTRACKING)
+        // ====================================================================
+        let stageHistory = [];
+        let currentStage = "envelope";
+        let isAttending = null;
+        let totalGuests = 1;
+        const maxGuestsAllowed = 2;
+
+        const progressMap = { envelope: 0, greeting: 25, attending: 50, details: 75, note: 75, confirmed: 100 };
+
+        function goToStage(stageName) {
+            // Track previous step in array sequence history before converting view state
+            if (currentStage && currentStage !== stageName && currentStage !== "envelope") {
+                stageHistory.push(currentStage);
+            }
+
+            currentStage = stageName;
+            document.getElementById('progress-bar').style.width = progressMap[stageName] + '%';
+
+            // Control dynamic layout visibility of the Back Navigation Button
+            const backBtnElement = document.getElementById('global-back-btn');
+            if (stageName === 'greeting' || stageName === 'confirmed') {
+                backBtnElement.classList.remove('visible');
+            } else {
+                backBtnElement.classList.add('visible');
+            }
+
+            document.querySelectorAll('.step-panel').forEach(panel => panel.classList.remove('active'));
+            const activePanel = document.getElementById('step-' + stageName);
+            if (activePanel) activePanel.classList.add('active');
+
+            if (stageName === 'details') {
+                renderGuestFields();
+            }
+        }
+
+        function handleBackNavigation() {
+            if (stageHistory.length === 0) return;
+            
+            // Pop the last stage off our historical trace configuration mapping
+            const previousStage = stageHistory.pop();
+            
+            currentStage = previousStage;
+            document.getElementById('progress-bar').style.width = progressMap[previousStage] + '%';
+
+            // Update state logic conditions if backing past acceptance trees
+            if (previousStage === 'attending') {
+                isAttending = null; 
+            }
+
+            const backBtnElement = document.getElementById('global-back-btn');
+            if (previousStage === 'greeting') {
+                backBtnElement.classList.remove('visible');
+            }
+
+            document.querySelectorAll('.step-panel').forEach(panel => panel.classList.remove('active'));
+            const activePanel = document.getElementById('step-' + previousStage);
+            if (activePanel) activePanel.classList.add('active');
+        }
+
+        function chooseAttending(status) {
+            isAttending = status;
+            setTimeout(() => {
+                goToStage(status ? 'details' : 'note');
+            }, 350);
+        }
+
+        function changeGuestCount(change) {
+            const newCount = totalGuests + change;
+            if (newCount >= 1 && newCount <= maxGuestsAllowed) {
+                totalGuests = newCount;
+                document.getElementById('guest-count-label').innerText = totalGuests;
+                renderGuestFields();
+            }
+        }
+
+        function renderGuestFields() {
+            const container2 = document.getElementById('dynamic-guests');
+            
+            // Preserve user data if they navigate backward and forward again
+            const savedNames = [];
+            for(let i=0; i<maxGuestsAllowed; i++) {
+                const existingVal = document.getElementById(`guest-name-${i}`);
+                savedNames.push(existingVal ? existingVal.value : "");
+            }
+
+            let html = '';
+            for (let i = 0; i < totalGuests; i++) {
+                const currentNameValue = savedNames[i] || "";
+                html += `
+          <div style="margin-bottom: 18px; padding-bottom: 16px; border-bottom: ${i < totalGuests - 1 ? '1px dashed #e5dfd2' : 'none'};">
+            <label for="guest-name-${i}" class="label-style">Guest ${i + 1} Full Name</label>
+            <input id="guest-name-${i}" class="input-style" style="margin-bottom: 4px;" placeholder="First and last name" required autocomplete="name" value="${currentNameValue}">
+            <div id="error-${i}" style="display: none; font-size: 13px; color: var(--BURGUNDY); font-family: 'EB Garamond', serif; margin-top: 4px; margin-bottom: 8px; font-weight: 500;">Please provide your full guest name.</div>
+
+            <label class="label-style" style="margin-top: 12px;">Meal Choice</label>
+            <div class="meal-options">
+              <button type="button" id="meal-${i}-chicken" class="meal-btn active" onclick="selectMeal(${i}, 'chicken')">Chicken</button>
+              <button type="button" id="meal-${i}-fish" class="meal-btn" onclick="selectMeal(${i}, 'fish')">Fish</button>
+              <button type="button" id="meal-${i}-veg" class="meal-btn" onclick="selectMeal(${i}, 'veg')">Vegetarian</button>
+            </div>
+            <input type="hidden" id="meal-val-${i}" value="chicken">
+          </div>
+        `;
+            }
+            container2.innerHTML = html;
+        }
+
+        function selectMeal(guestIdx, type) {
+            document.getElementById(`meal-${guestIdx}-chicken`).classList.remove('active');
+            document.getElementById(`meal-${guestIdx}-fish`).classList.remove('active');
+            document.getElementById(`meal-${guestIdx}-veg`).classList.remove('active');
+
+            document.getElementById(`meal-${guestIdx}-${type}`).classList.add('active');
+            document.getElementById(`meal-val-${guestIdx}`).value = type;
+        }
+
+        function submitForm(attendingStatus) {
+            if (attendingStatus) {
+                let dynamicValidationErrors = false;
+                for (let i = 0; i < totalGuests; i++) {
+                    const nameInput = document.getElementById(`guest-name-${i}`);
+                    const errorMsg = document.getElementById(`error-${i}`);
+                    if (!nameInput.value.trim()) {
+                        nameInput.style.border = "1px solid var(--BURGUNDY)";
+                        nameInput.style.background = "#FFF5F5";
+                        errorMsg.style.display = "block";
+                        dynamicValidationErrors = true;
+                    } else {
+                        nameInput.style.border = "1px solid #ddd6cc";
+                        nameInput.style.background = "#FCFAF5";
+                        errorMsg.style.display = "none";
+                    }
+                }
+                if (dynamicValidationErrors) return;
+            }
+
+            if (isAttending) {
+                document.getElementById('confirmed-title').innerText = "We can't wait to celebrate with you";
+                document.getElementById('confirmed-desc').innerText = "Your reply has been tucked safely into the guest book.";
+            } else {
+                document.getElementById('confirmed-title').innerText = "Thank you for letting us know";
+                document.getElementById('confirmed-desc').innerText = "You'll be held close in our hearts on the day.";
+            }
+
+            goToStage('confirmed');
+        }
+    </script>
+</body>
+</html>
